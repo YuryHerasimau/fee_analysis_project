@@ -11,18 +11,18 @@ The project includes two main stages: comparing fee data and identifying discrep
 
 ```
 fee_analysis_project/
-├── data/ # Входные данные
+├── data/ # Input data
 │ ├── own_trade_log.csv
 │ ├── order_log.csv
-│ ├── dump_log.csv
-├── output/ # Выходные данные
+│ ├── dump_log.csv # Hidden due to large size
+├── output/ # Output data
 │ ├── commission_comparison.csv
 │ ├── mismatched_data.csv
-├── scripts/ # Скрипты для обработки данных
+├── scripts/ # Data Processing Scripts
 │ ├── data_analysis.py
 │ ├── inconsistency_detection.py
-├── README.md # Описание проекта
-└── requirements.txt # Зависимости проекта
+├── README.md # Project Description
+└── requirements.txt # Project Dependencies
 ```
 
 ### Input data (`data/`)
@@ -30,8 +30,8 @@ fee_analysis_project/
 1. **own_trade_log.csv**  
    Platform trade log containing information about fees, IDs and assets.
 
-2. **order_log.csv** *(not used in the current version of the code, but reserved for future expansion)*  
-   Order log.
+2. **order_log.csv**  
+   Order log containing all orders placed on the exchange.
 
 3. **dump_log.csv**  
    Exchange log containing detailed messages about trades.
@@ -67,3 +67,13 @@ python scripts/data_analysis.py
 ```
 python scripts/inconsistency_detection.py
 ```
+
+## What can be improved
+- [X] Учитывать поле `gt_fee` из `dump_log`
+- [ ] Добавить использование `order_log` для проверки статусов ордеров
+- [ ] Включить анализ `is_fee_evaluated` для понимания контекста сделок
+- [ ] Включить анализ `source` для понимания контекста сделок
+- [ ] Использовать `chunking` в pandas для работы с большими файлами
+- [ ] Добавить обработку ошибок
+- [ ] Использовать `logging` для информирования о выполнении операций вместо `print`
+- [ ] Add tests

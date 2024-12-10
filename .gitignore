@@ -17,3 +17,6 @@ __pycache__/
 
 # Ignore large csv file
 data/dump_log.csv
+
+# Ignore debug.log
+debug.log
