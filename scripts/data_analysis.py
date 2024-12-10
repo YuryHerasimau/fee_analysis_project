@@ -47,6 +47,13 @@ def extract_fee_from_message(message):
 
 def compare_fees(own_trade_log, dump_log, order_log):
     """Сравнивает комиссии платформы и биржи."""
+    # Фильтруем dump_log по ключевым параметрам
+    filtered_dump_log = dump_log[
+        (dump_log['direction'] == 'In') &
+        (dump_log['message_name'] == 'WsPayload') &
+        (dump_log['message_kind'] == 'Regular')
+    ]
+
     comparison_data = []
 
     # Пройдем по всем записям в own_trade_log
@@ -60,52 +67,83 @@ def compare_fees(own_trade_log, dump_log, order_log):
         role = row["role"]
         source = row['source']
         is_fee_evaluated = row['is_fee_evaluated']
+        exchange_order_id = row['exchange_order_id']
 
         # Проверяем, была ли комиссия выставлена вручную
         if not is_fee_evaluated:
             print(f"Warning: Fee for trace_id {trace_id} is evaluated manually.")
 
-        # Найдем соответствующие сообщения в dump_log по trace_id
-        dump_entries = dump_log[dump_log["trace_id"] == trace_id]
+        # Сопоставление по order_id
+        order_data = order_log[order_log['exchange_order_id'] == exchange_order_id]
 
-        # Пройдем по всем сообщениям в dump_log
-        for _, dump_row in dump_entries.iterrows():
-            message = dump_row["message"]
+        if not order_data.empty:
+            # Исключаем статусы Canceling и Placing
+            filtered_order_data = order_data[~order_data['status'].isin(['Canceling', 'Placing'])]
 
-            # Извлекаем комиссию из сообщения
-            exchange_fee_rate, exchange_fee_asset, exchange_gt_fee_rate = extract_fee_from_message(message)
+            if not filtered_order_data.empty:
+                # Сортируем по времени и обрабатываем каждую запись
+                filtered_order_data = filtered_order_data.sort_values(by='platform_time', ascending=True)
 
-            # Классифицируем asset для платформы и биржи
-            platform_asset_type = classify_asset(
-                platform_fee_asset, base_asset, quote_asset
-            )
-            exchange_asset_type = (
-                classify_asset(exchange_fee_asset, base_asset, quote_asset)
-                if exchange_fee_asset
-                else None
-            )
-            exchange_gt_fee_asset_type = (
-                classify_asset(exchange_gt_fee_rate, base_asset, quote_asset)
-                if exchange_gt_fee_rate
-                else None
-            )
+                # Выбираем приоритетный статус
+                priority_statuses = {"Filled": 3, "Placed": 2, "Canceled": 1}
+                filtered_order_data["status_priority"] = filtered_order_data["status"].map(priority_statuses)
+                selected_order_row = filtered_order_data.loc[
+                    filtered_order_data["status_priority"].idxmax()
+                ]
+                order_status = selected_order_row['status']
 
-            # Составляем запись для сравнения
-            comparison_data.append(
-                {
-                    'trace_id': trace_id,
-                    "side": side,
-                    "role": role,
-                    'source': source,
-                    'is_fee_evaluated': is_fee_evaluated,
-                    "platform_fee_rate": platform_fee_rate,
-                    "platform_fee_asset": platform_asset_type,
-                    "exchange_fee_rate": exchange_fee_rate,
-                    "exchange_fee_asset": exchange_asset_type,
-                    'exchange_gt_fee_rate': exchange_gt_fee_rate,
-                    'exchange_gt_fee_asset': exchange_gt_fee_asset_type,
-                }
-            )
+                # Найдем соответствующие сообщения в dump_log по trace_id
+                related_dump_entries = filtered_dump_log[filtered_dump_log["trace_id"] == trace_id]
+
+                # Берем только одно сообщение (например, последнее)
+                if not related_dump_entries.empty:
+                    dump_row = related_dump_entries.iloc[-1]
+                    message = dump_row["message"]
+
+                    # Извлекаем комиссию из сообщения
+                    exchange_fee_rate, exchange_fee_asset, exchange_gt_fee_rate = extract_fee_from_message(message)
+
+                    # Классифицируем asset для платформы и биржи
+                    platform_asset_type = classify_asset(
+                        platform_fee_asset, base_asset, quote_asset
+                    )
+                    exchange_asset_type = (
+                        classify_asset(exchange_fee_asset, base_asset, quote_asset)
+                        if exchange_fee_asset
+                        else None
+                    )
+                    exchange_gt_fee_asset_type = (
+                        classify_asset(exchange_gt_fee_rate, base_asset, quote_asset)
+                        if exchange_gt_fee_rate
+                        else None
+                    )
+
+                    # Составляем запись для сравнения
+                    comparison_data.append(
+                        {
+                            'trace_id': trace_id,
+                            "side": side,
+                            "role": role,
+                            'source': source,
+                            'is_fee_evaluated': is_fee_evaluated,
+                            'order_status': order_status,
+                            "platform_fee_rate": platform_fee_rate,
+                            "platform_fee_asset": platform_asset_type,
+                            "exchange_fee_rate": exchange_fee_rate,
+                            "exchange_fee_asset": exchange_asset_type,
+                            'exchange_gt_fee_rate': exchange_gt_fee_rate,
+                            'exchange_gt_fee_asset': exchange_gt_fee_asset_type,
+                        }
+                    )
+
+                else:
+                    print(f"No relevant dump_log entries found for trace_id {trace_id}.")
+
+            else:
+                print(f"No relevant order statuses found for trace_id {trace_id}.")
+
+        else:
+            print(f"No order data found for exchange_order_id {exchange_order_id} (trace_id {trace_id}).")
 
     # Преобразуем результат в DataFrame
     return pd.DataFrame(comparison_data)
@@ -121,7 +159,7 @@ def main():
     own_trade_log, dump_log, order_log = load_data()
     comparison_df = compare_fees(own_trade_log, dump_log, order_log)
     save_results(comparison_df)
-    
+
     # unique_statuses = order_log['status'].unique()
     # print(unique_statuses) # ['Canceling' 'Canceled' 'Placing' 'Placed' 'Filled']
 

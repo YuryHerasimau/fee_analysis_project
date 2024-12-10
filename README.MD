@@ -69,11 +69,12 @@ python scripts/inconsistency_detection.py
 ```
 
 ## What can be improved
-- [X] Учитывать поле `gt_fee` из `dump_log`
-- [ ] Добавить использование `order_log` для проверки статусов ордеров
-- [ ] Включить анализ `is_fee_evaluated` для понимания контекста сделок
-- [ ] Включить анализ `source` для понимания контекста сделок
-- [ ] Использовать `chunking` в pandas для работы с большими файлами
-- [ ] Добавить обработку ошибок
-- [ ] Использовать `logging` для информирования о выполнении операций вместо `print`
+- [X] Include `gt_fee` from `dump_log` in fee comparison
+- [X] Filter `dump_log` by key parameters
+- [X] Enable `order_log` analysis to check order statuses
+- [X] Enable `is_fee_evaluated` analysis to understand trading context
+- [X] Enable `source` analysis to understand trading context
+- [ ] Use `chunking` in pandas to work with large files
+- [ ] Add error handling
+- [ ] Use `logging` to inform about operation execution instead of `print`
 - [ ] Add tests
