@@ -151,8 +151,8 @@ def compare_fees(own_trade_log, dump_log, order_log):
 
 def save_results(comparison_df):
     """Сохраняет результаты в CSV."""
-    comparison_df.to_csv("output/commission_comparison.csv", index=False)
-    print("Results saved to output/commission_comparison.csv")
+    comparison_df.to_csv("output/_fee_comparison.csv", index=False)
+    print("Results saved to output/_fee_comparison.csv")
 
 
 def main():

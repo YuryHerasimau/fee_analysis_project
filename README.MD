@@ -16,8 +16,8 @@ fee_analysis_project/
 │ ├── order_log.csv
 │ ├── dump_log.csv # Hidden due to large size
 ├── output/ # Output data
-│ ├── commission_comparison.csv
-│ ├── mismatched_data.csv
+│ ├── _fee_comparison.csv
+│ ├── _mismatched_data.csv
 ├── scripts/ # Data Processing Scripts
 │ ├── data_analysis.py
 │ ├── inconsistency_detection.py
@@ -67,6 +67,35 @@ python scripts/data_analysis.py
 ```
 python scripts/inconsistency_detection.py
 ```
+
+## Results
+
+### Summary of Mismatched Data
+Below is a summary of discrepancies identified during the analysis:
+
+* Total mismatched rows: 195
+* Breakdown by mismatch type:
+   * `fee_mismatch`: 134 cases
+   * `asset_mismatch`: 133 cases
+   * `gt_fee_mismatch`: 92 cases
+   * `gt_asset_mismatch`: 86 cases
+
+**Top Contributing Features to Mismatches**
+
+The features with the highest influence on mismatches are:
+* `side`
+* `is_fee_evaluated`
+* `source`
+
+### Visualizations
+Also created visualizations to understand the influence of these features.
+
+Example 1: Histogram of `fee_mismatch` by `is_fee_evaluated`
+<img src="output/asset_mismatch_by_is_fee_evaluated_histogram.png" width=600/ alt="asset_mismatch_by_is_fee_evaluated_histogram" />
+
+Example 2: Heatmap of `asset_mismatch` by `role`
+<img src="output/asset_mismatch_by_role_heatmap.png" width=600/ alt="asset_mismatch_by_role_heatmap" />
+
 
 ## What can be improved
 - [X] Include `gt_fee` from `dump_log` in fee comparison
