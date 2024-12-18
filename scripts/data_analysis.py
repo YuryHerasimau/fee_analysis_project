@@ -22,27 +22,32 @@ def classify_asset(asset, base_asset, quote_asset):
         return "aux"
 
 
-def extract_fee_from_message(message):
-    """Извлекает комиссию из сообщения биржевого трафика"""
+def extract_fee_from_message(message, fee_asset_name):
+    """
+    Извлекает комиссию из сообщения биржевого трафика.
+    Если asset равен GT, возвращает gt_fee вместо fee.
+    """
     try:
         data = json.loads(message)
 
         # Проверяем, является ли 'result' списком или словарем
         if isinstance(data["data"]["result"], list):
-            # Если это список, обработатываем 1й элемент или выполнить итерацию по всем элементам
             first_result = data["data"]["result"][0]
+        else:
+            first_result = data["data"]["result"]
+
+        # Используем gt_fee для GT-актива
+        if fee_asset_name.upper() == "GT":
+            fee = first_result.get("gt_fee", None)
+            # Для GT используем 'GT' как ассет
+            fee_currency = "GT" if fee else None
+        else:
             fee = first_result.get("fee", None)
             fee_currency = first_result.get("fee_currency", None)
-            gt_fee = first_result.get("gt_fee", None)
-        else:
-            # Если 'result' является словарем
-            fee = data["data"]["result"].get("fee", None)
-            fee_currency = data["data"]["result"].get("fee_currency", None)
-            gt_fee = data["data"]["result"].get("gt_fee", None)
-
-        return fee, fee_currency, gt_fee
+        
+        return fee, fee_currency
     except (KeyError, json.JSONDecodeError, IndexError):
-        return None, None, None
+        return None, None
 
 
 def compare_fees(own_trade_log, dump_log, order_log):
@@ -65,94 +70,78 @@ def compare_fees(own_trade_log, dump_log, order_log):
         quote_asset = row["quote_asset_name"]
         side = row["side"]
         role = row["role"]
-        source = row['source']
         is_fee_evaluated = row['is_fee_evaluated']
-        exchange_order_id = row['exchange_order_id']
 
-        # Проверяем, была ли комиссия выставлена вручную
-        if not is_fee_evaluated:
-            print(f"Warning: Fee for trace_id {trace_id} is evaluated manually.")
+        # Найдем соответствующие сообщения в dump_log по trace_id
+        related_dump_entries = filtered_dump_log[filtered_dump_log["trace_id"] == trace_id]
+    
+        for _, dump_row in related_dump_entries.iterrows():
+            message = dump_row["message"]
 
-        # Сопоставление по order_id
-        order_data = order_log[order_log['exchange_order_id'] == exchange_order_id]
+            # Извлекаем комиссию из сообщения
+            exchange_fee_rate, exchange_fee_asset = extract_fee_from_message(
+                message, platform_fee_asset
+            )
 
-        if not order_data.empty:
-            # Исключаем статусы Canceling и Placing
-            filtered_order_data = order_data[~order_data['status'].isin(['Canceling', 'Placing'])]
+            # Классифицируем asset для платформы и биржи
+            platform_asset_type = classify_asset(
+                platform_fee_asset, base_asset, quote_asset
+            )
+            exchange_asset_type = (
+                classify_asset(exchange_fee_asset, base_asset, quote_asset)
+                if exchange_fee_asset
+                else None
+            )
 
-            if not filtered_order_data.empty:
-                # Сортируем по времени и обрабатываем каждую запись
-                filtered_order_data = filtered_order_data.sort_values(by='platform_time', ascending=True)
-
-                # Выбираем приоритетный статус
-                priority_statuses = {"Filled": 3, "Placed": 2, "Canceled": 1}
-                filtered_order_data["status_priority"] = filtered_order_data["status"].map(priority_statuses)
-                selected_order_row = filtered_order_data.loc[
-                    filtered_order_data["status_priority"].idxmax()
-                ]
-                order_status = selected_order_row['status']
-
-                # Найдем соответствующие сообщения в dump_log по trace_id
-                related_dump_entries = filtered_dump_log[filtered_dump_log["trace_id"] == trace_id]
-
-                # Берем только одно сообщение (например, последнее)
-                if not related_dump_entries.empty:
-                    dump_row = related_dump_entries.iloc[-1]
-                    message = dump_row["message"]
-
-                    # Извлекаем комиссию из сообщения
-                    exchange_fee_rate, exchange_fee_asset, exchange_gt_fee_rate = extract_fee_from_message(message)
-
-                    # Классифицируем asset для платформы и биржи
-                    platform_asset_type = classify_asset(
-                        platform_fee_asset, base_asset, quote_asset
-                    )
-                    exchange_asset_type = (
-                        classify_asset(exchange_fee_asset, base_asset, quote_asset)
-                        if exchange_fee_asset
-                        else None
-                    )
-                    exchange_gt_fee_asset_type = (
-                        classify_asset(exchange_gt_fee_rate, base_asset, quote_asset)
-                        if exchange_gt_fee_rate
-                        else None
-                    )
-
-                    # Составляем запись для сравнения
-                    comparison_data.append(
-                        {
-                            'trace_id': trace_id,
-                            "side": side,
-                            "role": role,
-                            'source': source,
-                            'is_fee_evaluated': is_fee_evaluated,
-                            'order_status': order_status,
-                            "platform_fee_rate": platform_fee_rate,
-                            "platform_fee_asset": platform_asset_type,
-                            "exchange_fee_rate": exchange_fee_rate,
-                            "exchange_fee_asset": exchange_asset_type,
-                            'exchange_gt_fee_rate': exchange_gt_fee_rate,
-                            'exchange_gt_fee_asset': exchange_gt_fee_asset_type,
-                        }
-                    )
-
-                else:
-                    print(f"No relevant dump_log entries found for trace_id {trace_id}.")
-
-            else:
-                print(f"No relevant order statuses found for trace_id {trace_id}.")
-
-        else:
-            print(f"No order data found for exchange_order_id {exchange_order_id} (trace_id {trace_id}).")
+            # Составляем запись для сравнения
+            comparison_data.append(
+                {
+                    'trace_id': trace_id,
+                    "side": side,
+                    "role": role,
+                    'is_fee_evaluated': is_fee_evaluated,
+                    "platform_fee_rate": platform_fee_rate,
+                    "platform_fee_asset": platform_asset_type,
+                    "exchange_fee_rate": exchange_fee_rate,
+                    "exchange_fee_asset": exchange_asset_type,
+                }
+            )
 
     # Преобразуем результат в DataFrame
     return pd.DataFrame(comparison_data)
 
 
-def save_results(comparison_df):
+def save_results(comparison_df, output_file="output/_fee_comparison.csv"):
     """Сохраняет результаты в CSV."""
-    comparison_df.to_csv("output/_fee_comparison.csv", index=False)
-    print("Results saved to output/_fee_comparison.csv")
+    comparison_df.to_csv(output_file, index=False)
+    print(f"Results saved to {output_file}")
+
+
+def group_comparison_data(comparison_df, group_by_columns, output_file):
+    """Создаёт сгруппированную таблицу по заданным столбцам, вычисляя средние значения.."""
+    # Преобразуем числовые столбцы к числовому типу
+    numeric_columns = ['platform_fee_rate', 'exchange_fee_rate']
+    for col in numeric_columns:
+        comparison_df[col] = pd.to_numeric(comparison_df[col], errors='coerce')
+    
+    # Заполняем NaN значениями 0 или другим подходящим значением
+    comparison_df.fillna(0, inplace=True)
+
+    # Группируем по указанным столбцам
+    grouped = (
+        comparison_df.groupby(group_by_columns)
+        .agg(
+            total_count=('trace_id', 'count'),
+            avg_platform_fee=('platform_fee_rate', 'mean'),
+            sum_platform_fee=('platform_fee_rate', 'sum'),
+            avg_exchange_fee=('exchange_fee_rate', 'mean'),
+            sum_exchange_fee=('exchange_fee_rate', 'sum'),
+        )
+        .reset_index()
+    )
+    # Сохраняем результаты в CSV файл
+    grouped.to_csv(output_file, index=False)
+    print(f"Grouped results saved to {output_file}")
 
 
 def main():
@@ -160,9 +149,12 @@ def main():
     comparison_df = compare_fees(own_trade_log, dump_log, order_log)
     save_results(comparison_df)
 
-    # unique_statuses = order_log['status'].unique()
-    # print(unique_statuses) # ['Canceling' 'Canceled' 'Placing' 'Placed' 'Filled']
+    # Группировка итоговой таблицы по Side и Role
+    group_comparison_data(comparison_df, ['side', 'role'], "output/_fee_comparison_grouped_by_side_and_role.csv")
 
+    # Группировка итоговой таблицы по is_fee_evaluated
+    group_comparison_data(comparison_df, ['is_fee_evaluated'], "output/_fee_comparison_grouped_by_fee_evaluated.csv")
 
 if __name__ == "__main__":
     main()
+    
