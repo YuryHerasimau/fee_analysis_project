@@ -11,21 +11,24 @@ The project includes two main stages: comparing fee data and identifying discrep
 
 ```
 fee_analysis_project/
-├── data/ # Input data
+├── data/
 │ ├── own_trade_log.csv
 │ ├── order_log.csv
 │ ├── dump_log.csv # Hidden due to large size
-├── output/ # Output data
+├── output/
 │ ├── _fee_comparison.csv
 │ ├── _mismatched_data.csv
 ├── scripts/ # Data Processing Scripts
 │ ├── data_analysis.py
 │ ├── inconsistency_detection.py
+├── tests/
+│ ├── test_data_analysis.py
+│ ├── test_inconsistency_detection.py
 ├── utils/
 │ ├── analyze_mismatch_influence.py
 │ ├── visualization.py
-├── README.md # Project Description
-└── requirements.txt # Project Dependencies
+├── README.md
+└── requirements.txt
 ```
 
 ### Input data (`data/`)
@@ -42,7 +45,7 @@ fee_analysis_project/
 ### Output data (`output/`)
 
 1. **_fee_comparison.csv**  
-   Results of comparison of platform and exchange fees.
+   Results of comparison of platform and exchange fee rates.
 
 2. **_fee_comparison_grouped_by_fee_evaluated.csv**
 
@@ -82,6 +85,13 @@ python scripts/data_analysis.py
 python -m scripts.inconsistency_detection
 ```
 
+### Running Tests
+
+To run tests, use `pytest`:
+```
+pytest -s -v
+```
+
 ## Results
 
 ### Summary of Mismatched Data
@@ -89,7 +99,7 @@ Below is a summary of discrepancies identified during the analysis:
 
 * [Total mismatched rows](output/_mismatched_summary.csv): 35
 * Breakdown by mismatch type:
-   * `fee_mismatch`: 35 cases
+   * `fee_mismatch`: 31 cases
    * `asset_mismatch`: 28 cases
    * `sign_mismatch`: 0 cases
 
@@ -121,6 +131,6 @@ Example 3: Histogram of `fee_difference` by `side`
 <!-- - [X] Enable `source` analysis to understand trading context -->
 - [X] Show fee discrepancies with histograms and heat maps
 - [ ] Use `chunking` in pandas to work with large files
-- [ ] Add error handling
-- [ ] Use `logging` to inform about operation execution instead of `print`
-- [ ] Add tests
+- [X] Add error handling
+- [X] Use `logging` to inform about operation execution instead of `print`
+- [X] Add tests

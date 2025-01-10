@@ -1,14 +1,22 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import logging
 
 from utils.visualization import plot_heatmap, plot_histograms, visualize_mismatches
-from utils.analyze_mismatch_influence import analyze_mismatch_influence
+from utils.analyze_mismatch_influence import analyze_mismatch_influence, save_analysis_results
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
 def load_comparison_data():
     """Загружает данные сравнения."""
-    return pd.read_csv("output/_fee_comparison.csv")
+    try:
+        comparison_df = pd.read_csv("output/_fee_comparison.csv")
+        return comparison_df
+    except FileNotFoundError as e:
+        logging.error(f"Error loading comparison data: {e}")
+        raise
 
 
 def detect_mismatches(data):
@@ -33,15 +41,21 @@ def detect_mismatches(data):
 
 def save_summary_report(summary, output_file):
     """Сохраняет сводный отчет по расхождениям в CSV."""
-    summary_rows = [
-        {"Metric": key, "Category": sub_key, "Value": sub_value}
-        for key, value in summary.items()
-        for sub_key, sub_value in (value.items() if isinstance(value, dict) else [(None, value)])
-    ]
+    try:
+        summary_rows = [
+            {"Metric": key, "Category": sub_key, "Value": sub_value}
+            for key, value in summary.items()
+            for sub_key, sub_value in (
+                value.items() if isinstance(value, dict) else [(None, value)]
+            )
+        ]
 
-    summary_df = pd.DataFrame(summary_rows)
-    summary_df.to_csv(output_file, index=False)
-    print(f"Summary report saved to {output_file}")
+        summary_df = pd.DataFrame(summary_rows)
+        summary_df.to_csv(output_file, index=False)
+        logging.info(f"Summary report saved to {output_file}")
+    except Exception as e:
+        logging.error(f"Error saving summary report: {e}")
+        raise
 
 
 # def format_summary(summary):
@@ -54,17 +68,27 @@ def save_summary_report(summary, output_file):
 #         else:
 #             formatted.append(f"{key}: {value}")
 #     return "\n".join(formatted)
-    
+
 
 def summarize_mismatches(mismatched_data, output_file="output/_mismatched_summary.csv"):
     """Выводит и сохраняет сводный отчет по расхождениям."""
     summary = {
         "Total mismatched rows": len(mismatched_data),
-        "Mismatches by platform_fee_asset": mismatched_data["platform_fee_asset"].value_counts().to_dict(),
-        "Mismatches by exchange_fee_asset": mismatched_data["exchange_fee_asset"].value_counts().to_dict(),
-        "Mismatches by sign_mismatch": mismatched_data["sign_mismatch"].value_counts().to_dict(),
-        "Mismatches by fee_mismatch": mismatched_data["fee_mismatch"].value_counts().to_dict(),
-        "Mismatches by asset_mismatch": mismatched_data["asset_mismatch"].value_counts().to_dict(),
+        "Mismatches by platform_fee_asset": mismatched_data["platform_fee_asset"]
+        .value_counts()
+        .to_dict(),
+        "Mismatches by exchange_fee_asset": mismatched_data["exchange_fee_asset"]
+        .value_counts()
+        .to_dict(),
+        "Mismatches by sign_mismatch": mismatched_data["sign_mismatch"]
+        .value_counts()
+        .to_dict(),
+        "Mismatches by fee_mismatch": mismatched_data["fee_mismatch"]
+        .value_counts()
+        .to_dict(),
+        "Mismatches by asset_mismatch": mismatched_data["asset_mismatch"]
+        .value_counts()
+        .to_dict(),
     }
 
     # print("\nSummary of mismatched data:")
@@ -72,24 +96,34 @@ def summarize_mismatches(mismatched_data, output_file="output/_mismatched_summar
     save_summary_report(summary, output_file)
 
 
-def summarize_grouped_mismatches(mismatched_data, output_file="output/_grouped_summary.csv"):
+def summarize_grouped_mismatches(
+    mismatched_data, output_file="output/_grouped_summary.csv"
+):
     """Создает группировку по Side и Role."""
-    grouped = mismatched_data.groupby(['side', 'role']).size().reset_index(name='count')
-    grouped.to_csv(output_file, index=False)
-    print(f"Grouped summary saved to {output_file}")
+    try:
+        grouped = mismatched_data.groupby(["side", "role"]).size().reset_index(name="count")
+        grouped.to_csv(output_file, index=False)
+        logging.info(f"Grouped summary saved to {output_file}")
+    except Exception as e:
+        logging.error(f"Error saving grouped summary: {e}")
+        raise
 
 
 def save_mismatches(mismatched_data, output_file="output/_mismatched_data.csv"):
     """Сохраняет расхождения в CSV."""
-    mismatched_data.to_csv(output_file, index=False)
-    print(f"Mismatches saved to {output_file}")
+    try:
+        mismatched_data.to_csv(output_file, index=False)
+        logging.info(f"Mismatches saved to {output_file}")
+    except Exception as e:
+        logging.error(f"Error saving mismatches: {e}")
+        raise
 
 
 def main():
     data = load_comparison_data()
     mismatched_data = detect_mismatches(data)
     save_mismatches(mismatched_data)
-    
+
     # Сводный отчет о расхождениях
     summarize_mismatches(mismatched_data)
 
@@ -97,8 +131,13 @@ def main():
     summarize_grouped_mismatches(mismatched_data)
 
     # Анализ влияния переменных
-    mismatch_types = ["fee_mismatch", "asset_mismatch", "fee_difference", "sign_mismatch"]
-    features = ["side", "role","is_fee_evaluated"]
+    mismatch_types = [
+        "fee_mismatch",
+        "asset_mismatch",
+        "fee_difference",
+        "sign_mismatch",
+    ]
+    features = ["side", "role", "is_fee_evaluated"]
 
     analysis_results = {}
 
@@ -110,8 +149,11 @@ def main():
             print(result)
             print("\n")
 
+    save_analysis_results(analysis_results, "output")
+
     # Визуализация
     visualize_mismatches(mismatched_data, mismatch_types, features)
-       
+
+
 if __name__ == "__main__":
     main()

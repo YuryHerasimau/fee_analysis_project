@@ -1,6 +1,10 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import logging
+
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
 def plot_histograms(data, mismatch_column, features):
@@ -15,7 +19,7 @@ def plot_histograms(data, mismatch_column, features):
         plt.xticks(rotation=45)
         plt.tight_layout()
         plt.savefig(f"output/{mismatch_column}_by_{feature}_histogram.png")
-        print(f"Histogram saved: output/{mismatch_column}_by_{feature}_histogram.png")
+        logging.info(f"Histogram saved: output/{mismatch_column}_by_{feature}_histogram.png")
         plt.close()
 
 
@@ -30,7 +34,7 @@ def plot_heatmap(data, mismatch_column, features):
         plt.ylabel(mismatch_column)
         plt.tight_layout()
         plt.savefig(f"output/{mismatch_column}_by_{feature}_heatmap.png")
-        print(f"Heatmap saved: output/{mismatch_column}_by_{feature}_heatmap.png")
+        logging.info(f"Heatmap saved: output/{mismatch_column}_by_{feature}_heatmap.png")
         plt.close()
 
 
