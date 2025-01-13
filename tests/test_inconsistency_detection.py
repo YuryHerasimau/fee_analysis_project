@@ -1,5 +1,6 @@
 import pytest
 import pandas as pd
+import os
 from scripts.inconsistency_detection import (
     load_comparison_data,
     detect_mismatches,
@@ -7,62 +8,78 @@ from scripts.inconsistency_detection import (
     summarize_mismatches,
     summarize_grouped_mismatches
 )
-from io import StringIO
 
 
-# Пример данных для тестирования
-mock_data = """
-trace_id,side,role,is_fee_evaluated,platform_fee_rate,platform_fee_asset,exchange_fee_rate,exchange_fee_asset
-1,buy,maker,True,0.1,base,0.1,base
-2,sell,taker,True,0.05,quote,0.05,quote
-3,buy,maker,False,0.08,base,0.08,quote
-4,sell,taker,True,0.1,aux,0.12,aux
-"""
+def test_load_comparison_data(sample_comparison_data):
+    """Тест успешной загрузки данных сравнения."""
+    comparison_df = load_comparison_data(sample_comparison_data)
+
+    assert not comparison_df.empty, "comparison_df должен быть загружен."
+    assert isinstance(comparison_df, pd.DataFrame), "comparison_df должен быть DataFrame."
+    assert len(comparison_df) == 2, "comparison_df должен содержать 2 записи."
+    assert comparison_df.shape == (2, 7), "comparison_df должен иметь размер (2, 7)."
 
 
-# Функция для загрузки данных для теста
-def mock_load_data():
-    return pd.read_csv(StringIO(mock_data))
-
-
-def test_load_comparison_data(monkeypatch):
-    """Тестирование загрузки данных."""
-    # Используем mock-данные для теста
-    monkeypatch.setattr("scripts.inconsistency_detection.load_comparison_data", mock_load_data)
-    
-    data = load_comparison_data()
-    
-    # Проверяем, что данные загружены правильно
-    assert isinstance(data, pd.DataFrame)
-    assert data.shape == (4, 8)
+def test_load_comparison_data_file_not_found():
+    """Тест обработки ошибки при отсутствии файла."""
+    with pytest.raises(FileNotFoundError):
+        load_comparison_data("nonexistent.csv")
 
 
 def test_detect_mismatches():
-    """Тестирование обнаружения расхождений"""
-    data = mock_load_data()
-    
+    """Тест обнаружения расхождений."""
+    data = pd.DataFrame(
+        {
+            "trace_id": [1, 2, 3],
+            "side": ["bid", "ask", "bid"],
+            "role": ["taker", "maker", "taker"],
+            "platform_fee_rate": [0.1, 0.2, 0.3],
+            "exchange_fee_rate": [0.1, 0.15, 0.3],
+            "platform_fee_asset": ["USD", "USD", "BTC"],
+            "exchange_fee_asset": ["USD", "EUR", "BTC"],
+        }
+    )
+
     mismatched_data = detect_mismatches(data)
-    
-    # Проверяем, что найдено 1 расхождение (строка с trace_id=4)
-    assert len(mismatched_data) == 1
-    assert mismatched_data["fee_mismatch"].iloc[0] is True
-    assert mismatched_data["asset_mismatch"].iloc[0] is False
+
+    # Проверяем общее количество расхождений
+    assert len(mismatched_data) == 1, "Должно быть обнаружено одно расхождение."
+
+    # Проверяем конкретное расхождение по trace_id = 2
+    # assert mismatched_data.iloc[0]["trace_id"] == 2, "Расхождение должно быть в строке с trace_id = 2."
+    row = mismatched_data[mismatched_data["trace_id"] == 2].iloc[0]
+
+    assert row["fee_mismatch"], "fee_mismatch должен быть True."
+    assert row["asset_mismatch"], "asset_mismatch должен быть True."
+    assert row["fee_difference"] == pytest.approx(0.05), "fee_difference должен быть 0.05."
+    assert not row["sign_mismatch"], "sign_mismatch должен быть False."
 
 
-def test_save_summary_report():
-    """Тестирование сохранения сводного отчета"""
-    summary = {
-        "Total mismatched rows": 1,
-        "Mismatches by platform_fee_asset": {"base": 1},
-        "Mismatches by exchange_fee_asset": {"base": 1},
-    }
-    
-    # Пример того, что может быть сохранено
-    output = StringIO()
-    save_summary_report(summary, output)
-    
-    # Проверим, что сводный отчет был записан в output
-    output.seek(0)
-    result = output.read()
-    assert "Total mismatched rows" in result
-    assert "Mismatches by platform_fee_asset" in result
+def test_save_summary_report(tmp_path, sample_summary):
+    """Тестирует функцию save_summary_report на корректное сохранение файла."""
+    output_file = tmp_path / "test_summary_report.csv"
+
+    # Сохранение сводного отчета
+    save_summary_report(sample_summary, output_file)
+
+    # Проверка, что файл создан
+    assert os.path.exists(output_file), "Файл сводного отчета не создан."
+
+    # Проверка содержимого файла
+    df = pd.read_csv(output_file)
+
+    # Проверяем наличие ключевых метрик
+    assert "Metric" in df.columns, "Отсутствует колонка 'Metric' в отчете."
+    assert "Category" in df.columns, "Отсутствует колонка 'Category' в отчете."
+    assert "Value" in df.columns, "Отсутствует колонка 'Value' в отчете."
+
+    # Проверяем корректность количества строк
+    expected_row_count = sum(
+        len(value) if isinstance(value, dict) else 1 for value in sample_summary.values()
+    )
+    assert len(df) == expected_row_count, "Некорректное количество строк в отчете."
+
+    # Проверяем наличие ключевой метрики "Total mismatched rows"
+    assert df[df["Metric"] == "Total mismatched rows"]["Value"].iloc[0] == 5, (
+        "Некорректное значение для 'Total mismatched rows'."
+    )

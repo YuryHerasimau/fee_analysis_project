@@ -1,11 +1,13 @@
 Metric,Category,Value
-Total mismatched rows,,2
-Mismatches by platform_fee_asset,base,1
-Mismatches by platform_fee_asset,aux,1
-Mismatches by exchange_fee_asset,quote,1
-Mismatches by exchange_fee_asset,aux,1
-Mismatches by sign_mismatch,False,2
+Total mismatched rows,,32
+Mismatches by platform_fee_asset,quote,15
+Mismatches by platform_fee_asset,base,14
+Mismatches by platform_fee_asset,aux,3
+Mismatches by exchange_fee_asset,base,16
+Mismatches by exchange_fee_asset,quote,13
+Mismatches by exchange_fee_asset,aux,3
+Mismatches by sign_mismatch,False,32
+Mismatches by fee_mismatch,True,31
 Mismatches by fee_mismatch,False,1
-Mismatches by fee_mismatch,True,1
-Mismatches by asset_mismatch,True,1
-Mismatches by asset_mismatch,False,1
+Mismatches by asset_mismatch,True,28
+Mismatches by asset_mismatch,False,4

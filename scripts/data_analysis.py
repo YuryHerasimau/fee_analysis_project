@@ -5,15 +5,30 @@ import logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
-def load_data():
-    """Загружает входные данные."""
+def load_data(own_trade_path, dump_log_path, order_log_path):
+    """Загружает входные данные из заданных файлов."""
     try:
-        own_trade_log = pd.read_csv("data/own_trade_log.csv")
-        dump_log = pd.read_csv("data/dump_log.csv")
-        order_log = pd.read_csv("data/order_log.csv")
+        own_trade_log = pd.read_csv(own_trade_path)
+        dump_log = pd.read_csv(dump_log_path)
+        order_log = pd.read_csv(order_log_path)
+
+        if own_trade_log.empty:
+            logging.warning("own_trade_log is empty.")
+        if dump_log.empty:
+            logging.warning("dump_log is empty.")
+        if order_log.empty:
+            logging.warning("order_log is empty.")
+        
         return own_trade_log, dump_log, order_log
+
     except FileNotFoundError as e:
-        logging.error(f"Error loading data: {e}")
+        logging.error(f"File not found: {e}")
+        raise
+    except pd.errors.EmptyDataError as e:
+        logging.error(f"File is empty or contains invalid data: {e}")
+        raise
+    except Exception as e:
+        logging.error(f"Unexpected error loading data: {e}")
         raise
 
 
@@ -188,7 +203,10 @@ def group_comparison_data(comparison_df, group_by_columns, output_file):
 
 
 def main():
-    own_trade_log, dump_log, order_log = load_data()
+    own_trade_log, dump_log, order_log = load_data(
+        "data/own_trade_log.csv", "data/dump_log.csv", "data/order_log.csv"
+    )
+    
     comparison_df = compare_fees(own_trade_log, dump_log, order_log)
     save_results(comparison_df)
 

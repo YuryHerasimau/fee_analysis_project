@@ -97,7 +97,7 @@ pytest -s -v
 ### Summary of Mismatched Data
 Below is a summary of discrepancies identified during the analysis:
 
-* [Total mismatched rows](output/_mismatched_summary.csv): 35
+* [Total mismatched rows](output/_mismatched_summary.csv): 32
 * Breakdown by mismatch type:
    * `fee_mismatch`: 31 cases
    * `asset_mismatch`: 28 cases

@@ -2,17 +2,16 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import logging
-
 from utils.visualization import plot_heatmap, plot_histograms, visualize_mismatches
 from utils.analyze_mismatch_influence import analyze_mismatch_influence, save_analysis_results
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 
-def load_comparison_data():
-    """Загружает данные сравнения."""
+def load_comparison_data(filepath):
+    """Загружает данные сравнения из из заданного файла."""
     try:
-        comparison_df = pd.read_csv("output/_fee_comparison.csv")
+        comparison_df = pd.read_csv(filepath)
         return comparison_df
     except FileNotFoundError as e:
         logging.error(f"Error loading comparison data: {e}")
@@ -120,7 +119,7 @@ def save_mismatches(mismatched_data, output_file="output/_mismatched_data.csv"):
 
 
 def main():
-    data = load_comparison_data()
+    data = load_comparison_data("output/_fee_comparison.csv")
     mismatched_data = detect_mismatches(data)
     save_mismatches(mismatched_data)
 

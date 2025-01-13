@@ -1,3 +1,4 @@
 side,role,count
-buy,maker,2
-sell,taker,2
+Ask,Maker,13
+Bid,Maker,18
+Bid,Taker,1
